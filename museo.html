@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ArtScope – Explora el Met Museum</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+
+<style>
+  body{ background:#f7f5f0; font-family:'Open Sans',sans-serif; }
+  header{ background:#4c2e2e; color:#f7f5f0; padding:2rem 0; text-align:center; }
+  .logo{ font-family:'Playfair Display',serif; font-size:2.2rem; letter-spacing:1px; }
+  .tagline{ font-size:1rem; color:#e0dcd3; }
+  .hero-img{ width:100%; max-height:360px; object-fit:cover; display:block; }
+  .intro{ max-width:760px; margin:2rem auto; text-align:center; font-size:1.1rem; color:#4c2e2e; }
+  #results img{ object-fit:cover; height:200px; }
+  .card{ border:none; background:#fff; box-shadow:0 3px 6px rgba(0,0,0,0.08); transition:transform .2s; }
+  .card:hover{ transform:scale(1.02); }
+  .card-title{ font-family:'Playfair Display',serif; font-size:1rem; color:#4c2e2e; }
+  .artist{ font-size:.9rem; color:#6c757d; }
+  .alert-localhost{ background:#fff3cd; color:#856404; border:1px solid #ffeeba; padding:.75rem 1rem; margin:1rem auto; max-width:760px; border-radius:.25rem; text-align:center; font-size:.95rem; }
+  footer{ text-align:center; padding:2rem 0 1rem; color:#6c757d; font-size:.9rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">ArtScope</div>
+  <div class="tagline">Descubre las obras del Met Museum</div>
+</header>
+
+<img src="museo.jpg" alt="Museo" class="hero-img">
+
+<div class="container">
+  <p class="intro">
+    Esta página funciona como una <strong>guía rápida</strong> para conocer las colecciones
+    que puedes encontrar en el <strong>Metropolitan Museum of Art</strong>.  
+    Úsala para planear tu visita o simplemente para explorar desde casa
+    las pinturas y objetos más destacados.
+  </p>
+
+  <div class="row justify-content-center mb-4">
+    <div class="col-md-8">
+      <div class="input-group input-group-lg shadow-sm">
+        <input id="query" class="form-control" placeholder="Ej: Monet, Egypt, Renaissance">
+        <button id="btn" class="btn btn-danger">Buscar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="results" class="row g-4 justify-content-center"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+const base = "https://collectionapi.metmuseum.org/public/collection/v1";
+const btn  = document.getElementById("btn");
+const q    = document.getElementById("query");
+const box  = document.getElementById("results");
+
+// Utilidad para limitar el tiempo de espera de fetch
+function fetchWithTimeout(url, options={}, timeout=10000) {
+  return Promise.race([
+    fetch(url, options),
+    new Promise((_, reject) =>
+      setTimeout(()=>reject(new Error("Tiempo de espera agotado")), timeout)
+    )
+  ]);
+}
+
+btn.onclick = async () => {
+  const query = q.value.trim();
+  if(!query){ alert("Escribe algo para buscar"); return; }
+
+  box.innerHTML = "<div class='text-center py-3'>Buscando obras...</div>";
+
+  try{
+    // Primera petición: búsqueda
+    const s = await fetchWithTimeout(`${base}/search?hasImages=true&q=${encodeURIComponent(query)}`);
+    const data = await s.json();
+
+    if (!data.objectIDs || data.objectIDs.length===0) {
+      box.innerHTML="<p class='text-center'>Sin resultados</p>";
+      return;
+    }
+
+    const ids = data.objectIDs.slice(0,6); // solo 6
+    // Segunda fase: pedir detalles en paralelo
+    const objs = await Promise.all(ids.map(id =>
+      fetchWithTimeout(`${base}/objects/${id}`).then(r=>r.json()).catch(()=>null)
+    ));
+
+    let html = "";
+    objs.forEach(o=>{
+      if (o && o.primaryImageSmall){
+        html += `
+        <div class="col-sm-6 col-md-4 col-lg-3">
+          <div class="card h-100">
+            <img src="${o.primaryImageSmall}" class="card-img-top" alt="">
+            <div class="card-body p-3">
+              <h6 class="card-title mb-1">${o.title || "Sin título"}</h6>
+              <div class="artist">${o.artistDisplayName || "Artista desconocido"}</div>
+            </div>
+          </div>
+        </div>`;
+      }
+    });
+
+    box.innerHTML = html || "<p class='text-center'>No se pudieron cargar imágenes</p>";
+
+  }catch(e){
+    console.error(e);
+    box.innerHTML = "<p class='text-center text-danger'>Error de conexión. Intenta de nuevo.</p>";
+  }
+};
+</script>
+</body>
+</html>
+
+
+
+
+
