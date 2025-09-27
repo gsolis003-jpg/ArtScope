@@ -133,10 +133,12 @@ btn.onclick = async () => {
       return;
     }
 
-    const ids = data.objectIDs.slice(0, 6);
+    const ids = data.objectIDs.slice(0, 20); // pedir más para filtrar
     let html = "";
+    let count = 0;
 
     for (const id of ids) {
+      if (count >= 6) break;
       try {
         const res = await fetch(`${base}/objects/${id}`);
         const obj = await res.json();
@@ -152,13 +154,22 @@ btn.onclick = async () => {
               </div>
             </div>
           </div>`;
+          count++;
         }
       } catch (err) {
         console.warn("Error al cargar objeto", id, err);
       }
     }
 
-    box.innerHTML = html || "<p class='text-center'>No se pudieron cargar imágenes</p>";
+    if (html) {
+      box.innerHTML = html;
+    } else {
+      box.innerHTML = `
+        <div class="text-center text-warning py-3">
+          Se encontraron obras, pero ninguna tiene imagen disponible.<br>
+          Intenta con otro término como <strong>Monet</strong>, <strong>Van Gogh</strong> o <strong>Egypt</strong>.
+        </div>`;
+    }
 
   } catch (error) {
     console.error("Error general:", error);
@@ -169,6 +180,8 @@ btn.onclick = async () => {
 
 </body>
 </html>
+
+
 
 
 
